@@ -1,3 +1,7 @@
+prj/build
+__pycache__
+
+
 # Prerequisites
 *.d
 
