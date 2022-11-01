@@ -249,4 +249,54 @@ namespace ttf
 		}
 	}
 
+
+
+	instance_counter::instance_counter()
+	{
+		m_share_ptr = new std::atomic<int>(0);
+		*m_share_ptr++;
+	}
+	instance_counter::~instance_counter()
+	{
+		if (--(*m_share_ptr) == 0)
+		{
+			delete[] m_share_ptr;
+		}
+	}
+	instance_counter::instance_counter(const instance_counter& other)
+	{
+		m_share_ptr = other.m_share_ptr;
+		*m_share_ptr++;
+	}
+	instance_counter& instance_counter::operator = (const instance_counter& other)
+	{
+		this->~instance_counter();
+		m_share_ptr = other.m_share_ptr;
+		*m_share_ptr++;
+		return (*this);
+	}
+	instance_counter::instance_counter(instance_counter&& other)
+		:instance_counter()
+	{
+		swap(other);
+	}
+	instance_counter& instance_counter::operator = (instance_counter&& other)
+	{
+		instance_counter tmp;
+		this->swap(tmp);
+		this->swap(other);	
+		return (*this);
+	}
+
+	void instance_counter::swap(instance_counter& other)
+	{
+		std::swap(m_share_ptr, other.m_share_ptr);
+	}
+
+	int instance_counter::share() const
+	{
+		return m_share_ptr->load();
+	}
+
+
 }

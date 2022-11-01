@@ -2,9 +2,28 @@
 #pragma once
 
 #include <cstddef>
+#include <atomic>
 
 namespace ttf
 {
+
+	struct instance_counter
+	{
+	protected:
+		std::atomic<int>* m_share_ptr = nullptr;
+	public:
+		instance_counter();
+		~instance_counter();
+		
+		instance_counter(const instance_counter& other);
+		instance_counter& operator = (const instance_counter& other);
+		
+		instance_counter(instance_counter&& other);
+		instance_counter& operator = (instance_counter&& other);
+
+		void swap(instance_counter& other);
+		int share() const;
+	};
 
 	//---------------------------------------------------------------------------------
 	struct AssertInterceptedException
