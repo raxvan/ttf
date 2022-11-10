@@ -2,9 +2,9 @@
 
 #include "../src/ttf.h"
 
-
 void simple_test()
-{}
+{
+}
 
 void entrypoint()
 {

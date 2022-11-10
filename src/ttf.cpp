@@ -16,15 +16,15 @@ namespace ttf
 	class ContextImpl : public Context
 	{
 	public:
-		std::size_t			active_assert_count = 0;
-		std::vector<char>	active_error_log;
-		ITestInstance*		active = nullptr;
-		
-		std::size_t 	started_count = 0;
-		std::size_t 	passed_count = 0;
-		std::size_t 	failed_count = 0;
-		std::size_t 	skipped_count = 0;
-		
+		std::size_t		  active_assert_count = 0;
+		std::vector<char> active_error_log;
+		ITestInstance*	  active = nullptr;
+
+		std::size_t started_count = 0;
+		std::size_t passed_count = 0;
+		std::size_t failed_count = 0;
+		std::size_t skipped_count = 0;
+
 	public:
 		virtual void run_test_instance(ITestInstance& t) override
 		{
@@ -43,29 +43,29 @@ namespace ttf
 			active_assert_count++;
 			if (expr_failed)
 			{
-				//assert failed:
+				// assert failed:
 				log_error_line("ASSERT failed at:%s(%d)", file, line);
 				log_error_line("File:%s", expr);
-				
+
 				if (is_interractive())
 				{
 					flush_error_log();
-					//user is running with debugger, let him handle the situation
+					// user is running with debugger, let him handle the situation
 					return true;
 				}
 				else
 				{
-					throw AssertInterceptedException{};
+					throw AssertInterceptedException {};
 				}
 			}
 			return false;
 		}
-		virtual bool intercept_assert(const bool expr_failed, const char* expr, const char* file, const int line, const char * format, ...) override
+		virtual bool intercept_assert(const bool expr_failed, const char* expr, const char* file, const int line, const char* format, ...) override
 		{
 			active_assert_count++;
 			if (expr_failed)
 			{
-				//assert failed:
+				// assert failed:
 				log_error_line("ASSERT failed at:%s(%d)", file, line);
 				log_error_line("File:%s", expr);
 
@@ -76,20 +76,21 @@ namespace ttf
 				va_end(args);
 
 				log_error_line("Info:%s", buffer);
-				
+
 				if (is_interractive())
 				{
 					flush_error_log();
-					//user is running with debugger, let him handle the situation
+					// user is running with debugger, let him handle the situation
 					return true;
 				}
 				else
 				{
-					throw AssertInterceptedException{};
+					throw AssertInterceptedException {};
 				}
 			}
 			return false;
 		}
+
 	public:
 		ContextImpl(const char** /*argv*/, std::size_t /*argc*/)
 		{
@@ -99,6 +100,7 @@ namespace ttf
 		{
 			Context::context = nullptr;
 		}
+
 	public:
 		inline bool is_interractive() const
 		{
@@ -116,7 +118,7 @@ namespace ttf
 			}
 			catch (AssertInterceptedException&)
 			{
-				//failiure_message is populated in interception function
+				// failiure_message is populated in interception function
 				return false;
 			}
 			catch (...)
@@ -139,11 +141,11 @@ namespace ttf
 
 			if (accept_active_test())
 			{
-				auto start = std::chrono::high_resolution_clock::now();
-				bool r = execute_active_test();
-				auto end = std::chrono::high_resolution_clock::now();
+				auto	 start = std::chrono::high_resolution_clock::now();
+				bool	 r = execute_active_test();
+				auto	 end = std::chrono::high_resolution_clock::now();
 				uint64_t ns = std::chrono::duration<uint64_t, std::nano>(end - start).count();
-				double ms = double(ns) / 1e+6;
+				double	 ms = double(ns) / 1e+6;
 
 				/*
 				std::cout << "\033[1;34m";
@@ -159,7 +161,6 @@ namespace ttf
 					passed_count++;
 					std::cout << "\033[1;32m";
 					std::cout << " - OK.      {" << std::fixed << std::setprecision(4) << ms << " ms}" << std::endl;
-					
 				}
 				else
 				{
@@ -169,7 +170,6 @@ namespace ttf
 				}
 
 				flush_error_log();
-
 			}
 			else
 			{
@@ -210,7 +210,7 @@ namespace ttf
 			va_end(args_data);
 			active_error_log.push_back('\n');
 		}
-		
+
 	public:
 		static void print_recursive(ITestInstance* f)
 		{
@@ -225,7 +225,7 @@ namespace ttf
 			}
 		}
 	};
-	int Context::entrypoint(const char** argv, std::size_t argc, void(*main_func)())
+	int Context::entrypoint(const char** argv, std::size_t argc, void (*main_func)())
 	{
 		ContextImpl ctx(argv, argc);
 		main_func();
@@ -249,8 +249,6 @@ namespace ttf
 		}
 	}
 
-
-
 	instance_counter::instance_counter()
 	{
 		m_share_ptr = new std::atomic<int>(0);
@@ -268,7 +266,7 @@ namespace ttf
 		m_share_ptr = other.m_share_ptr;
 		*m_share_ptr++;
 	}
-	instance_counter& instance_counter::operator = (const instance_counter& other)
+	instance_counter& instance_counter::operator=(const instance_counter& other)
 	{
 		this->~instance_counter();
 		m_share_ptr = other.m_share_ptr;
@@ -276,15 +274,15 @@ namespace ttf
 		return (*this);
 	}
 	instance_counter::instance_counter(instance_counter&& other)
-		:instance_counter()
+		: instance_counter()
 	{
 		swap(other);
 	}
-	instance_counter& instance_counter::operator = (instance_counter&& other)
+	instance_counter& instance_counter::operator=(instance_counter&& other)
 	{
 		instance_counter tmp;
 		this->swap(tmp);
-		this->swap(other);	
+		this->swap(other);
 		return (*this);
 	}
 
@@ -297,6 +295,5 @@ namespace ttf
 	{
 		return m_share_ptr->load();
 	}
-
 
 }
