@@ -5,7 +5,7 @@
 #include <vector>
 #include <chrono>
 #include <iomanip>
-
+#include <mutex>
 #ifdef _WIN32
 #	include <windows.h>
 #endif
@@ -16,9 +16,10 @@ namespace ttf
 	class ContextImpl : public Context
 	{
 	public:
-		std::size_t		  active_assert_count = 0;
-		std::vector<char> active_error_log;
-		ITestInstance*	  active = nullptr;
+		std::mutex				 active_mutex;
+		std::atomic<std::size_t> active_assert_count = 0;
+		std::vector<char>		 active_error_log;
+		ITestInstance*			 active = nullptr;
 
 		std::size_t started_count = 0;
 		std::size_t passed_count = 0;
@@ -44,8 +45,11 @@ namespace ttf
 			if (expr_failed)
 			{
 				// assert failed:
-				log_error_line("ASSERT failed at:%s(%d)", file, line);
-				log_error_line("File:%s", expr);
+				{
+					std::lock_guard<std::mutex> _(active_mutex);
+					log_error_line("ASSERT failed at:%s(%d)", file, line);
+					log_error_line("File:%s", expr);
+				}
 
 				if (is_interractive())
 				{
@@ -66,17 +70,19 @@ namespace ttf
 			if (expr_failed)
 			{
 				// assert failed:
-				log_error_line("ASSERT failed at:%s(%d)", file, line);
-				log_error_line("File:%s", expr);
+				{
+					std::lock_guard<std::mutex> _(active_mutex);
+					log_error_line("ASSERT failed at:%s(%d)", file, line);
+					log_error_line("File:%s", expr);
 
-				char	buffer[2048];
-				va_list args;
-				va_start(args, format);
-				std::vsnprintf(buffer, sizeof(buffer), format, args);
-				va_end(args);
+					char	buffer[2048];
+					va_list args;
+					va_start(args, format);
+					std::vsnprintf(buffer, sizeof(buffer), format, args);
+					va_end(args);
 
-				log_error_line("Info:%s", buffer);
-
+					log_error_line("Info:%s", buffer);
+				}
 				if (is_interractive())
 				{
 					flush_error_log();
@@ -123,6 +129,7 @@ namespace ttf
 			}
 			catch (...)
 			{
+				std::lock_guard<std::mutex> _(active_mutex);
 				log_error_line("Unknown exception!");
 				return false;
 			}
@@ -182,6 +189,7 @@ namespace ttf
 		}
 		void flush_error_log()
 		{
+			std::lock_guard<std::mutex> _(active_mutex);
 			if (active_error_log.size())
 			{
 				active_error_log.push_back('\0');
@@ -251,8 +259,8 @@ namespace ttf
 
 	instance_counter::instance_counter()
 	{
-		m_share_ptr = new std::atomic<int>(0);
-		*m_share_ptr++;
+		m_share_ptr = new std::atomic<int>();
+		m_share_ptr->store(1);
 	}
 	instance_counter::~instance_counter()
 	{
