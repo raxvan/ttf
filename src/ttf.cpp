@@ -259,8 +259,7 @@ namespace ttf
 
 	instance_counter::instance_counter()
 	{
-		m_share_ptr = new std::atomic<int>();
-		m_share_ptr->store(1);
+		m_share_ptr = new std::atomic<int>(1);
 	}
 	instance_counter::~instance_counter()
 	{
@@ -272,13 +271,13 @@ namespace ttf
 	instance_counter::instance_counter(const instance_counter& other)
 	{
 		m_share_ptr = other.m_share_ptr;
-		*m_share_ptr++;
+		(*m_share_ptr)++;
 	}
 	instance_counter& instance_counter::operator=(const instance_counter& other)
 	{
 		this->~instance_counter();
 		m_share_ptr = other.m_share_ptr;
-		*m_share_ptr++;
+		(*m_share_ptr)++;
 		return (*this);
 	}
 	instance_counter::instance_counter(instance_counter&& other)
