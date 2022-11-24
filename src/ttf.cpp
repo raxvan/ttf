@@ -2,6 +2,7 @@
 #include "ttf.h"
 
 #include <iostream>
+#include <sstream>
 #include <vector>
 #include <chrono>
 #include <iomanip>
@@ -12,101 +13,132 @@
 
 namespace ttf
 {
-	Context* Context::context = nullptr;
+
+	struct active_test_data
+	{
+		std::ostringstream log;
+		std::ostringstream err;
+		
+		ITestInstance*     active = nullptr;
+
+	public:
+		void reset()
+		{
+			log.str("");
+			log.clear();
+			err.str("");
+			err.clear();
+		}
+
+		void log_start(std::size_t index)
+		{
+			log << "\033[1;34m";
+			log << "\n-------------------------------------------------------" << std::endl;
+			log << "#" << index << " [";
+			log_name_recursive(active);
+			log << "]";
+			log << "\033[0m";
+		}
+
+		void log_success(double ms)
+		{
+			log << "\033[1;32m";
+			log << " - OK.      {" << std::fixed << std::setprecision(4) << ms << " ms}" << std::endl;
+			log << "\033[0m";
+		}
+
+		void log_failiure(double ms)
+		{
+			log << "\033[1;31m";
+			log << " - FAILED!  {" << std::fixed << std::setprecision(4) << ms << " ms}" << std::endl;
+			log << "\033[0m";
+		}
+
+		void log_skip()
+		{
+			log << "\033[1;33m";
+			log << " - SKIPPED ..." << std::endl;
+			log << "\033[0m";
+		}
+
+		void flush_log()
+		{
+			std::cout << log.str() << std::endl;
+
+			do
+			{
+				//log errors if any
+				std::streampos pos = err.tellp();  // store current location
+				err.seekp(0, std::ios_base::end);  // go to end
+				bool empty = (err.tellp() == 0);   // check size == 0 ?
+				err.seekp(pos);
+
+				if(empty)
+					break;
+
+				std::cerr << "ERRORS:\n" << err.str() << std::endl;
+			}
+			while(false);
+
+			reset();
+		}
+
+	public:
+		void log_name_recursive(ITestInstance* f)
+		{
+			if (f->parent != nullptr)
+			{
+				log_name_recursive(f->parent);
+				log << "." << f->name;
+			}
+			else
+			{
+				log << f->name;
+			}
+		}
+
+
+
+	};
+
+	static active_test_data& get_active_test_state()
+	{
+		thread_local active_test_data s;
+		return s;
+	}
+
 	class ContextImpl : public Context
 	{
 	public:
-		std::mutex				 active_mutex;
 		std::atomic<std::size_t> active_assert_count = 0;
-		std::vector<char>		 active_error_log;
-		ITestInstance*			 active = nullptr;
+		std::atomic<std::size_t> started_count = 0;
 
-		std::size_t started_count = 0;
-		std::size_t passed_count = 0;
-		std::size_t failed_count = 0;
-		std::size_t skipped_count = 0;
+		std::atomic<std::size_t> passed_count = 0;
+		std::atomic<std::size_t> failed_count = 0;
+		std::atomic<std::size_t> skipped_count = 0;
 
+		std::mutex				 context_lock;
 	public:
-		virtual void run_test_instance(ITestInstance& t) override
+		ContextImpl()
 		{
-			active_assert_count = 0;
-			active_error_log.clear();
-
-			t.parent = active;
-			active = &t;
-
-			run_active_test();
-
-			active = active->parent;
-		}
-		virtual bool intercept_assert(const bool expr_failed, const char* expr, const char* file, const int line) override
-		{
-			active_assert_count++;
-			if (expr_failed)
-			{
-				// assert failed:
-				{
-					std::lock_guard<std::mutex> _(active_mutex);
-					log_error_line("ASSERT failed at:%s(%d)", file, line);
-					log_error_line("File:%s", expr);
-				}
-
-				if (is_interractive())
-				{
-					flush_error_log();
-					// user is running with debugger, let him handle the situation
-					return true;
-				}
-				else
-				{
-					throw AssertInterceptedException {};
-				}
-			}
-			return false;
-		}
-		virtual bool intercept_assert(const bool expr_failed, const char* expr, const char* file, const int line, const char* format, ...) override
-		{
-			active_assert_count++;
-			if (expr_failed)
-			{
-				// assert failed:
-				{
-					std::lock_guard<std::mutex> _(active_mutex);
-					log_error_line("ASSERT failed at:%s(%d)", file, line);
-					log_error_line("File:%s", expr);
-
-					char	buffer[2048];
-					va_list args;
-					va_start(args, format);
-					std::vsnprintf(buffer, sizeof(buffer), format, args);
-					va_end(args);
-
-					log_error_line("Info:%s", buffer);
-				}
-				if (is_interractive())
-				{
-					flush_error_log();
-					// user is running with debugger, let him handle the situation
-					return true;
-				}
-				else
-				{
-					throw AssertInterceptedException {};
-				}
-			}
-			return false;
-		}
-
-	public:
-		ContextImpl(const char** /*argv*/, std::size_t /*argc*/)
-		{
-			Context::context = this;
 		}
 		~ContextImpl()
 		{
-			Context::context = nullptr;
 		}
 
+		inline bool initialize(const char** /*argv*/, std::size_t /*argc*/)
+		{
+			static bool initialized = false;
+			std::lock_guard<std::mutex> _(context_lock);
+			if (initialized == true)
+			{
+				std::cerr << "Internal testing error ..." << std::endl;
+				failed_count++;
+				return false;
+			}
+			initialized = true;
+			return true;
+		}
 	public:
 		inline bool is_interractive() const
 		{
@@ -116,11 +148,11 @@ namespace ttf
 			return false;
 #endif
 		}
-		bool execute_active_test()
+		bool execute_active_test(active_test_data& ac)
 		{
 			try
 			{
-				active->run();
+				ac.active->run();
 			}
 			catch (AssertInterceptedException&)
 			{
@@ -129,140 +161,186 @@ namespace ttf
 			}
 			catch (...)
 			{
-				std::lock_guard<std::mutex> _(active_mutex);
-				log_error_line("Unknown exception!");
+				ac.err << "Unknown exception!" << std::endl;
 				return false;
 			}
 			return true;
 		}
 
-		void run_active_test()
+		bool accept_test_instance(ITestInstance*)
 		{
-			std::cout << "\033[1;34m";
-			std::cout << "\n-------------------------------------------------------" << std::endl;
-			std::cout << "#" << started_count++ << " [";
-			print_recursive(active);
-			std::cout << "]";
-			std::cout << "\033[0m";
-			std::cout << std::endl;
+			return failed_count == 0;
+		}
+		void run_active_test(active_test_data& ac)
+		{
+			ac.log_start(started_count++);
 
-			if (accept_active_test())
+			if (accept_test_instance(ac.active))
 			{
 				auto	 start = std::chrono::high_resolution_clock::now();
-				bool	 r = execute_active_test();
+				bool	 r = execute_active_test(ac);
 				auto	 end = std::chrono::high_resolution_clock::now();
 				uint64_t ns = std::chrono::duration<uint64_t, std::nano>(end - start).count();
 				double	 ms = double(ns) / 1e+6;
 
-				/*
-				std::cout << "\033[1;34m";
-				std::cout << "[";
-				print_recursive(active);
-				std::cout << "]";
-				*/
-
-				std::cout << std::endl;
-
 				if (r)
 				{
 					passed_count++;
-					std::cout << "\033[1;32m";
-					std::cout << " - OK.      {" << std::fixed << std::setprecision(4) << ms << " ms}" << std::endl;
+					ac.log_success(ms);
 				}
 				else
 				{
 					failed_count++;
-					std::cout << "\033[1;31m";
-					std::cout << " - FAILED!  {" << std::fixed << std::setprecision(4) << ms << " ms}" << std::endl;
+					ac.log_failiure(ms);
 				}
-
-				flush_error_log();
 			}
 			else
 			{
 				skipped_count++;
-				std::cout << "\033[1;33m";
-				std::cout << " - SKIPPED ..." << std::endl;
+				ac.log_skip();
 			}
 
-			std::cout << "\033[0m";
-		}
-		void flush_error_log()
-		{
-			std::lock_guard<std::mutex> _(active_mutex);
-			if (active_error_log.size())
 			{
-				active_error_log.push_back('\0');
-				std::cout << active_error_log.data();
-				active_error_log.clear();
+				std::lock_guard<std::mutex> _(context_lock);
+				ac.flush_log();
 			}
-		}
-		bool accept_active_test()
-		{
-			return failed_count == 0;
-		}
-		void log_error_line(const char* fmt, ...)
-		{
-			va_list args_len;
-			va_list args_data;
 
-			va_start(args_len, fmt);
-			va_copy(args_data, args_len);
-			std::size_t sz = std::vsnprintf(nullptr, 0, fmt, args_len);
-			va_end(args_len);
-
-			active_error_log.push_back('\t');
-			std::size_t index = active_error_log.size();
-			active_error_log.resize(index + sz);
-			std::vsnprintf(active_error_log.data() + index, sz, fmt, args_data);
-			va_end(args_data);
-			active_error_log.push_back('\n');
-		}
-
-	public:
-		static void print_recursive(ITestInstance* f)
-		{
-			if (f->parent != nullptr)
-			{
-				print_recursive(f->parent);
-				std::cout << "." << f->name;
-			}
-			else
-			{
-				std::cout << f->name;
-			}
 		}
 	};
+
+	static ContextImpl& get_active_context()
+	{
+		static ContextImpl s{};
+		return s;
+	}
+
+	void Context::run_test_instance(ITestInstance& t)
+	{
+		auto& ac = get_active_test_state();
+
+		t.parent = ac.active;
+		ac.active = &t;
+
+		get_active_context().run_active_test(ac);
+
+		ac.active = ac.active->parent;
+	}
+	bool Context::intercept_assert(const bool expr_failed, const char* expr, const char* file, const int line)
+	{
+		auto& context = get_active_context();
+		
+		context.active_assert_count++;
+		if (expr_failed)
+		{
+			auto& ac = get_active_test_state();
+
+			// assert failed:
+			{
+				ac.err << "ASSERT failed at:" << file << "(" << line << ")" << std::endl;
+				ac.err << "EXPR:" << expr << std::endl;
+
+				if (context.is_interractive())
+				{
+					// user is running with debugger, let him handle the situation
+					std::lock_guard<std::mutex> _(context.context_lock);
+					ac.flush_log();
+					
+					return true;
+				}
+			}
+
+			{
+				throw AssertInterceptedException {};
+			}
+		}
+		return false;
+	}
+	bool Context::intercept_assert(const bool expr_failed, const char* expr, const char* file, const int line, const char* format, ...)
+	{
+		auto& context = get_active_context();
+
+		context.active_assert_count++;
+		if (expr_failed)
+		{
+			auto& ac = get_active_test_state();
+
+			// assert failed:
+			{
+				char	buffer[2048];
+				va_list args;
+				va_start(args, format);
+				std::vsnprintf(buffer, sizeof(buffer), format, args);
+				va_end(args);
+
+				ac.err << "ASSERT failed at:" << file << "(" << line << ")" << std::endl;
+				ac.err << "EXPR:" << expr << std::endl;
+				ac.err << "INFO:" << buffer << std::endl;
+
+				if (context.is_interractive())
+				{
+					// user is running with debugger, let him handle the situation
+					std::lock_guard<std::mutex> _(context.context_lock);
+					ac.flush_log();
+					return true;
+				}
+			}
+
+			{
+				throw AssertInterceptedException {};
+			}
+		}
+		return false;
+	}
+
+	//--------------------------------------------------------------------------------------------------------------------------------
+
 	int Context::entrypoint(const char** argv, std::size_t argc, void (*main_func)())
 	{
-		ContextImpl ctx(argv, argc);
-		main_func();
-		std::cout << std::endl << "---------------------------------------" << std::endl << std::endl;
+		auto& ctx = get_active_context();
 
+		if (ctx.initialize(argv,argc))
+			main_func();
+		else
+			std::cerr << "Internal testing error!" << std::endl;
+
+		{
+			//global tests
+			if (instance_counter::m_global_share != 0)
+			{
+				ctx.failed_count++;
+				std::cerr << "Leaked shared objects detected!" << std::endl;
+				return -3;
+			}
+		}
+
+		std::cout << std::endl << "---------------------------------------" << std::endl << std::endl;
 		std::cout << "Asserts: " << ctx.active_assert_count << std::endl;
 		std::cout << "Started: " << ctx.started_count << std::endl;
 		std::cout << "Skipped: " << ctx.skipped_count << std::endl;
 		std::cout << "Passed: " << ctx.passed_count << std::endl;
 		std::cout << "Failed: " << ctx.failed_count << std::endl;
-
 		std::cout << std::endl << "---------------------------------------" << std::endl;
 
+		int result = 0;
 		if (ctx.failed_count > 0)
-		{
-			return 0;
-		}
-		else
-		{
-			return -1;
-		}
+			result = -1;
+	
+		return result;	
+		
 	}
+
+	//--------------------------------------------------------------------------------------------------------------------------------
+
+	std::atomic<int> instance_counter::m_global_share{0};
 
 	instance_counter::instance_counter()
 	{
 		m_share_ptr = new std::atomic<int>(1);
+		instance_counter::m_global_share++;
 	}
 	instance_counter::~instance_counter()
 	{
+		instance_counter::m_global_share--;
 		if (--(*m_share_ptr) == 0)
 		{
 			delete[] m_share_ptr;
@@ -272,6 +350,7 @@ namespace ttf
 	{
 		m_share_ptr = other.m_share_ptr;
 		(*m_share_ptr)++;
+		instance_counter::m_global_share++;
 	}
 	instance_counter& instance_counter::operator=(const instance_counter& other)
 	{
@@ -284,6 +363,7 @@ namespace ttf
 		: instance_counter()
 	{
 		swap(other);
+		instance_counter::m_global_share++;
 	}
 	instance_counter& instance_counter::operator=(instance_counter&& other)
 	{

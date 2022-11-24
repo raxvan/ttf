@@ -10,6 +10,9 @@ namespace ttf
 	struct instance_counter
 	{
 	protected:
+		friend class Context;
+		static std::atomic<int> m_global_share;
+
 		std::atomic<int>* m_share_ptr = nullptr;
 
 	public:
@@ -69,12 +72,14 @@ namespace ttf
 	class Context
 	{
 	public:
-		static Context* context;
 		static int		entrypoint(const char** argv, std::size_t argc, void (*main_func)());
-
+		static bool intercept_assert(const bool expr_value, const char* expr, const char* file, const int line);
+		static bool intercept_assert(const bool expr_value, const char* expr, const char* file, const int line, const char* format, ...);
+		static void run_test_instance(ITestInstance& t);
 	public:
+
 		template <class F>
-		inline void test(const char* name, const F& f)
+		static void function_test(const char* name, const F& f)
 		{
 			TestInstance<F> t(f);
 			t.name = name;
@@ -91,16 +96,10 @@ namespace ttf
 			template <class F>
 			void operator=(const F& _func)
 			{
-				ttf::Context::context->test(name, _func);
+				Context::function_test(name, _func);
 			}
 		};
-
-	public:
-		virtual void run_test_instance(ITestInstance& t) = 0;
-		virtual bool intercept_assert(const bool expr_value, const char* expr, const char* file, const int line)
-			= 0; // returns true if the execution should stop (when a debugger is attached for example)
-		virtual bool intercept_assert(const bool expr_value, const char* expr, const char* file, const int line, const char* format, ...)
-			= 0; // returns true if the execution should stop (when a debugger is attached for example)
+		
 	};
 	//---------------------------------------------------------------------------------
 	//---------------------------------------------------------------------------------
@@ -112,7 +111,7 @@ namespace ttf
 		return ttf::Context::entrypoint(argv, std::size_t(argc), F); \
 	}
 
-#define TEST_FUNCTION(FUNC) ttf::Context::context->test(#FUNC, [&]() { FUNC(); })
+#define TEST_FUNCTION(FUNC) ttf::Context::function_test(#FUNC, [&]() { FUNC(); })
 
 #define TEST_INLINE() ttf::Context::inline_test(__FUNCTION__)
 
@@ -139,7 +138,7 @@ namespace ttf
 		bool _test_assert_failed = false;                                                            \
 		if (!(COND))                                                                                 \
 			_test_assert_failed = true;                                                              \
-		if (ttf::Context::context->intercept_assert(_test_assert_failed, #COND, __FILE__, __LINE__)) \
+		if (ttf::Context::intercept_assert(_test_assert_failed, #COND, __FILE__, __LINE__)) \
 		{                                                                                            \
 			TTF_STOP_DEBUGGER();                                                                     \
 		}                                                                                            \
@@ -151,7 +150,7 @@ namespace ttf
 		bool _test_assert_failed = false;                                                                           \
 		if (!(COND))                                                                                                \
 			_test_assert_failed = true;                                                                             \
-		if (ttf::Context::context->intercept_assert(_test_assert_failed, #COND, __FILE__, __LINE__, ##__VA_ARGS__)) \
+		if (ttf::Context::intercept_assert(_test_assert_failed, #COND, __FILE__, __LINE__, ##__VA_ARGS__)) \
 		{                                                                                                           \
 			TTF_STOP_DEBUGGER();                                                                                    \
 		}                                                                                                           \
