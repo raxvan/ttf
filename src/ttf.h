@@ -72,12 +72,12 @@ namespace ttf
 	class Context
 	{
 	public:
-		static int		entrypoint(const char** argv, std::size_t argc, void (*main_func)());
+		static int	entrypoint(const char** argv, std::size_t argc, void (*main_func)());
 		static bool intercept_assert(const bool expr_value, const char* expr, const char* file, const int line);
 		static bool intercept_assert(const bool expr_value, const char* expr, const char* file, const int line, const char* format, ...);
 		static void run_test_instance(ITestInstance& t);
-	public:
 
+	public:
 		template <class F>
 		static void function_test(const char* name, const F& f)
 		{
@@ -99,7 +99,6 @@ namespace ttf
 				Context::function_test(name, _func);
 			}
 		};
-		
 	};
 	//---------------------------------------------------------------------------------
 	//---------------------------------------------------------------------------------
@@ -132,28 +131,28 @@ namespace ttf
 		} while (false)
 #endif
 
-#define TTF_ASSERT(COND)                                                                             \
-	do                                                                                               \
-	{                                                                                                \
-		bool _test_assert_failed = false;                                                            \
-		if (!(COND))                                                                                 \
-			_test_assert_failed = true;                                                              \
+#define TTF_ASSERT(COND)                                                                    \
+	do                                                                                      \
+	{                                                                                       \
+		bool _test_assert_failed = false;                                                   \
+		if (!(COND))                                                                        \
+			_test_assert_failed = true;                                                     \
 		if (ttf::Context::intercept_assert(_test_assert_failed, #COND, __FILE__, __LINE__)) \
-		{                                                                                            \
-			TTF_STOP_DEBUGGER();                                                                     \
-		}                                                                                            \
+		{                                                                                   \
+			TTF_STOP_DEBUGGER();                                                            \
+		}                                                                                   \
 	} while (false)
 
-#define TTF_ASSERT_DESC(COND, ...)                                                                                  \
-	do                                                                                                              \
-	{                                                                                                               \
-		bool _test_assert_failed = false;                                                                           \
-		if (!(COND))                                                                                                \
-			_test_assert_failed = true;                                                                             \
+#define TTF_ASSERT_DESC(COND, ...)                                                                         \
+	do                                                                                                     \
+	{                                                                                                      \
+		bool _test_assert_failed = false;                                                                  \
+		if (!(COND))                                                                                       \
+			_test_assert_failed = true;                                                                    \
 		if (ttf::Context::intercept_assert(_test_assert_failed, #COND, __FILE__, __LINE__, ##__VA_ARGS__)) \
-		{                                                                                                           \
-			TTF_STOP_DEBUGGER();                                                                                    \
-		}                                                                                                           \
+		{                                                                                                  \
+			TTF_STOP_DEBUGGER();                                                                           \
+		}                                                                                                  \
 	} while (false)
 
 #define TEST_ASSERT TTF_ASSERT

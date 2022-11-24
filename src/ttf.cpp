@@ -18,8 +18,8 @@ namespace ttf
 	{
 		std::ostringstream log;
 		std::ostringstream err;
-		
-		ITestInstance*     active = nullptr;
+
+		ITestInstance* active = nullptr;
 
 	public:
 		void reset()
@@ -67,18 +67,17 @@ namespace ttf
 
 			do
 			{
-				//log errors if any
-				std::streampos pos = err.tellp();  // store current location
-				err.seekp(0, std::ios_base::end);  // go to end
-				bool empty = (err.tellp() == 0);   // check size == 0 ?
+				// log errors if any
+				std::streampos pos = err.tellp(); // store current location
+				err.seekp(0, std::ios_base::end); // go to end
+				bool empty = (err.tellp() == 0);  // check size == 0 ?
 				err.seekp(pos);
 
-				if(empty)
+				if (empty)
 					break;
 
 				std::cerr << "ERRORS:\n" << err.str() << std::endl;
-			}
-			while(false);
+			} while (false);
 
 			reset();
 		}
@@ -96,9 +95,6 @@ namespace ttf
 				log << f->name;
 			}
 		}
-
-
-
 	};
 
 	static active_test_data& get_active_test_state()
@@ -117,7 +113,8 @@ namespace ttf
 		std::atomic<std::size_t> failed_count = 0;
 		std::atomic<std::size_t> skipped_count = 0;
 
-		std::mutex				 context_lock;
+		std::mutex context_lock;
+
 	public:
 		ContextImpl()
 		{
@@ -128,7 +125,7 @@ namespace ttf
 
 		inline bool initialize(const char** /*argv*/, std::size_t /*argc*/)
 		{
-			static bool initialized = false;
+			static bool					initialized = false;
 			std::lock_guard<std::mutex> _(context_lock);
 			if (initialized == true)
 			{
@@ -139,6 +136,7 @@ namespace ttf
 			initialized = true;
 			return true;
 		}
+
 	public:
 		inline bool is_interractive() const
 		{
@@ -204,13 +202,12 @@ namespace ttf
 				std::lock_guard<std::mutex> _(context_lock);
 				ac.flush_log();
 			}
-
 		}
 	};
 
 	static ContextImpl& get_active_context()
 	{
-		static ContextImpl s{};
+		static ContextImpl s {};
 		return s;
 	}
 
@@ -228,7 +225,7 @@ namespace ttf
 	bool Context::intercept_assert(const bool expr_failed, const char* expr, const char* file, const int line)
 	{
 		auto& context = get_active_context();
-		
+
 		context.active_assert_count++;
 		if (expr_failed)
 		{
@@ -244,7 +241,7 @@ namespace ttf
 					// user is running with debugger, let him handle the situation
 					std::lock_guard<std::mutex> _(context.context_lock);
 					ac.flush_log();
-					
+
 					return true;
 				}
 			}
@@ -298,13 +295,13 @@ namespace ttf
 	{
 		auto& ctx = get_active_context();
 
-		if (ctx.initialize(argv,argc))
+		if (ctx.initialize(argv, argc))
 			main_func();
 		else
 			std::cerr << "Internal testing error!" << std::endl;
 
 		{
-			//global tests
+			// global tests
 			if (instance_counter::m_global_share != 0)
 			{
 				ctx.failed_count++;
@@ -324,14 +321,13 @@ namespace ttf
 		int result = 0;
 		if (ctx.failed_count > 0)
 			result = -1;
-	
-		return result;	
-		
+
+		return result;
 	}
 
 	//--------------------------------------------------------------------------------------------------------------------------------
 
-	std::atomic<int> instance_counter::m_global_share{0};
+	std::atomic<int> instance_counter::m_global_share { 0 };
 
 	instance_counter::instance_counter()
 	{
