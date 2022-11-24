@@ -10,9 +10,6 @@ namespace ttf
 	struct instance_counter
 	{
 	protected:
-		friend class Context;
-		static std::atomic<int> m_global_share;
-
 		std::atomic<int>* m_share_ptr = nullptr;
 
 	public:

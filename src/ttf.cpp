@@ -290,6 +290,11 @@ namespace ttf
 	}
 
 	//--------------------------------------------------------------------------------------------------------------------------------
+	std::atomic<int>& get_global_instance_counter()
+	{
+		static std::atomic<int> ginst{0};
+		return ginst;
+	}
 
 	int Context::entrypoint(const char** argv, std::size_t argc, void (*main_func)())
 	{
@@ -302,7 +307,7 @@ namespace ttf
 
 		{
 			// global tests
-			if (instance_counter::m_global_share != 0)
+			if (get_global_instance_counter().load() != 0)
 			{
 				ctx.failed_count++;
 				std::cerr << "Leaked shared objects detected!" << std::endl;
@@ -327,16 +332,15 @@ namespace ttf
 
 	//--------------------------------------------------------------------------------------------------------------------------------
 
-	std::atomic<int> instance_counter::m_global_share { 0 };
-
 	instance_counter::instance_counter()
 	{
+		get_global_instance_counter()++;
+
 		m_share_ptr = new std::atomic<int>(1);
-		instance_counter::m_global_share++;
 	}
 	instance_counter::~instance_counter()
 	{
-		instance_counter::m_global_share--;
+		get_global_instance_counter()--;
 		if (--(*m_share_ptr) == 0)
 		{
 			delete[] m_share_ptr;
@@ -344,22 +348,21 @@ namespace ttf
 	}
 	instance_counter::instance_counter(const instance_counter& other)
 	{
+		get_global_instance_counter()++;
 		m_share_ptr = other.m_share_ptr;
 		(*m_share_ptr)++;
-		instance_counter::m_global_share++;
-	}
-	instance_counter& instance_counter::operator=(const instance_counter& other)
-	{
-		this->~instance_counter();
-		m_share_ptr = other.m_share_ptr;
-		(*m_share_ptr)++;
-		return (*this);
 	}
 	instance_counter::instance_counter(instance_counter&& other)
 		: instance_counter()
 	{
 		swap(other);
-		instance_counter::m_global_share++;
+	}
+
+	instance_counter& instance_counter::operator=(const instance_counter& other)
+	{
+		instance_counter tmp(other);
+		swap(tmp);
+		return (*this);
 	}
 	instance_counter& instance_counter::operator=(instance_counter&& other)
 	{
