@@ -341,7 +341,9 @@ namespace ttf
 	instance_counter::~instance_counter()
 	{
 		get_global_instance_counter()--;
-		if (--(*m_share_ptr) == 0)
+		auto ic = --(*m_share_ptr);
+		TTF_ASSERT(ic >= 0);
+		if (ic == 0)
 		{
 			delete[] m_share_ptr;
 		}
