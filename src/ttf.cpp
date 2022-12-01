@@ -310,7 +310,7 @@ namespace ttf
 			if (get_global_instance_counter().load() != 0)
 			{
 				ctx.failed_count++;
-				std::cerr << "Leaked shared objects detected!" << std::endl;
+				std::cerr << "Leaked instances detected!" << std::endl;
 				return -3;
 			}
 		}
