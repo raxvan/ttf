@@ -103,10 +103,40 @@ namespace ttf
 		return s;
 	}
 
+	struct spin_lock
+	{
+		std::atomic<bool> flag = { false };
+
+		inline void lock() noexcept
+		{
+			while (true)
+			{
+				if (flag.exchange(true, std::memory_order_acquire) == false)
+					break;
+
+				while (flag.load(std::memory_order_relaxed))
+				{
+					// yield for hyperthreading improvements:
+					//__builtin_ia32_pause
+				}
+			}
+		}
+
+		inline void unlock() noexcept
+		{
+			flag.store(false, std::memory_order_release);
+		}
+	};
+
 	class ContextImpl : public Context
 	{
 	public:
 		std::atomic<std::size_t> active_assert_count = 0;
+		bool    	 			 assert_incercept_report = false;
+		spin_lock 				 assert_lock;
+		std::vector<const char*> assert_files;
+
+	public:
 		std::atomic<std::size_t> started_count = 0;
 
 		std::atomic<std::size_t> passed_count = 0;
@@ -114,6 +144,9 @@ namespace ttf
 		std::atomic<std::size_t> skipped_count = 0;
 
 		std::mutex context_lock;
+
+		
+
 
 	public:
 		ContextImpl()
@@ -133,6 +166,8 @@ namespace ttf
 				failed_count++;
 				return false;
 			}
+			assert_incercept_report = is_interractive();
+
 			initialized = true;
 			return true;
 		}
@@ -203,6 +238,30 @@ namespace ttf
 				ac.flush_log();
 			}
 		}
+		void intercept_assert(const char * file)
+		{
+			active_assert_count++;
+			if(assert_incercept_report)
+			{
+				std::lock_guard<spin_lock> _(assert_lock);
+				assert_files.push_back(file);
+			}
+		}
+		void print_assert_info(std::ostream& out)
+		{
+			std::lock_guard<spin_lock> _(assert_lock);
+			{
+				std::sort(assert_files.begin(), assert_files.end());
+				auto itr = std::unique(assert_files.begin(), assert_files.end());
+				assert_files.erase(itr,assert_files.end());
+			}
+
+			out << "---------------------------------------" << std::endl;
+			out << "Files with asserts:" << std::endl;
+			for(auto a : assert_files)
+				out << a << std::endl;
+		}
+
 	};
 
 	static ContextImpl& get_active_context()
@@ -222,11 +281,12 @@ namespace ttf
 
 		ac.active = ac.active->parent;
 	}
+
 	bool Context::intercept_assert(const bool expr_failed, const char* expr, const char* file, const int line)
 	{
 		auto& context = get_active_context();
 
-		context.active_assert_count++;
+		context.intercept_assert(file);
 		if (expr_failed)
 		{
 			auto& ac = get_active_test_state();
@@ -256,7 +316,7 @@ namespace ttf
 	{
 		auto& context = get_active_context();
 
-		context.active_assert_count++;
+		context.intercept_assert(file);
 		if (expr_failed)
 		{
 			auto& ac = get_active_test_state();
@@ -315,13 +375,22 @@ namespace ttf
 			}
 		}
 
-		std::cout << std::endl << "---------------------------------------" << std::endl << std::endl;
+		std::cout << std::endl;
+
+		if(ctx.assert_incercept_report)
+		{
+			ctx.print_assert_info(std::cout);
+		}
+
+		std::cout << "---------------------------------------" << std::endl;
 		std::cout << "Asserts: " << ctx.active_assert_count << std::endl;
 		std::cout << "Started: " << ctx.started_count << std::endl;
 		std::cout << "Skipped: " << ctx.skipped_count << std::endl;
 		std::cout << "Passed: " << ctx.passed_count << std::endl;
 		std::cout << "Failed: " << ctx.failed_count << std::endl;
-		std::cout << std::endl << "---------------------------------------" << std::endl;
+		std::cout << "---------------------------------------" << std::endl;
+
+
 
 		int result = 0;
 		if (ctx.failed_count > 0)
