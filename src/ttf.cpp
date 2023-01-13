@@ -8,6 +8,8 @@
 #include <iomanip>
 #include <mutex>
 #include <algorithm>
+#include <cstdarg>
+
 #ifdef _WIN32
 #	include <windows.h>
 #endif
