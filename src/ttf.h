@@ -65,6 +65,11 @@ namespace ttf
 
 	//---------------------------------------------------------------------------------
 	//---------------------------------------------------------------------------------
+	struct utils
+	{
+		static std::string read_text_file(const char* abs_path_to_file);
+	};
+	
 	//---------------------------------------------------------------------------------
 
 	class Context
@@ -74,9 +79,7 @@ namespace ttf
 		static bool intercept_assert(const bool expr_value, const char* expr, const char* file, const int line);
 		static bool intercept_assert(const bool expr_value, const char* expr, const char* file, const int line, const char* format, ...);
 		static void run_test_instance(ITestInstance& t);
-
-
-		static std::string read_text_file(const char* abs_path_to_file);
+		
 	public:
 		template <class F>
 		static void function_test(const char* name, const F& f)

@@ -459,11 +459,11 @@ namespace ttf
 		return m_share_ptr->load();
 	}
 
-	std::string Context::read_text_file(const char* abs_path_to_file)
+	std::string utils::read_text_file(const char* abs_path_to_file)
 	{
-		std::ifstream t(abs_path_to_file);
-		if (t.is_open())
-			return std::string((std::istreambuf_iterator<char>(t)), std::istreambuf_iterator<char>());
+		std::ifstream fin(abs_path_to_file);
+		if (fin.is_open())
+			return std::string((std::istreambuf_iterator<char>(fin)), std::istreambuf_iterator<char>());
 		
 		std::cerr << "Failed to open file" << abs_path_to_file << std::endl;
 		auto& ctx = get_active_context();
