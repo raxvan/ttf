@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <atomic>
 #include <string>
+#include <chrono>
 
 namespace ttf
 {
@@ -68,6 +69,28 @@ namespace ttf
 	struct utils
 	{
 		static std::string read_text_file(const char* abs_path_to_file);
+	};
+
+	struct timer
+	{
+	public:
+		inline timer()
+			:m_start_time(std::chrono::high_resolution_clock::now())
+		{
+		}
+
+		inline uint64_t get_nanoseconds() const
+		{
+			auto now_time = std::chrono::high_resolution_clock::now();
+			return std::chrono::duration_cast<std::chrono::nanoseconds>(now_time - m_start_time).count();
+		}
+
+		inline double get_seconds() const
+		{
+			return static_cast<double>(get_nanoseconds()) / 1000000000.0;
+		}
+	private:
+		std::chrono::high_resolution_clock::time_point m_start_time;
 	};
 	
 	//---------------------------------------------------------------------------------
