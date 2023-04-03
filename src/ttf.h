@@ -1,6 +1,7 @@
 
 #pragma once
 
+#include <iostream>
 #include <cstddef>
 #include <atomic>
 #include <string>
