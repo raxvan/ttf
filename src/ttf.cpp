@@ -313,6 +313,7 @@ namespace ttf
 			}
 
 			{
+				std::cerr << ac.err.str() << std::endl;
 				throw AssertInterceptedException {};
 			}
 		}
