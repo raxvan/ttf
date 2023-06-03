@@ -17,8 +17,34 @@
 #	include <windows.h>
 #endif
 
+#if defined(__GNUC__) || defined(__GNUG__)
+#include <execinfo.h>
+#endif
+
 namespace ttf
 {
+
+#if defined(__GNUC__) || defined(__GNUG__)
+	void print_call_stack(std::size_t skip_count)
+	{
+		void *array[64];
+
+		std::size_t size = backtrace(array, 64);
+
+		char **strings = backtrace_symbols(array, size);
+
+		if (strings == NULL) {
+			std::cerr << "Failed to print backtrace!" << std::endl;
+			return;
+		}
+
+		for (std::size_t i = skip_count; i < size; i++) {
+			std::cout << "\t[" << i << "] " << strings[i] << std::endl;
+		}
+
+		free(strings);
+	}
+#endif
 
 	struct active_test_data
 	{
@@ -302,18 +328,22 @@ namespace ttf
 				ac.err << "ASSERT failed at:" << file << "(" << line << ")" << std::endl;
 				ac.err << "EXPR:" << expr << std::endl;
 
+				{
+					std::lock_guard<std::mutex> _(context.context_lock);
+					ac.flush_log();
+				}
 				if (context.is_interractive())
 				{
 					// user is running with debugger, let him handle the situation
-					std::lock_guard<std::mutex> _(context.context_lock);
-					ac.flush_log();
-
 					return true;
 				}
 			}
 
 			{
-				std::cerr << ac.err.str() << std::endl;
+				print_call_stack(2);
+			}
+
+			{
 				throw AssertInterceptedException {};
 			}
 		}
@@ -340,14 +370,19 @@ namespace ttf
 				ac.err << "EXPR:" << expr << std::endl;
 				ac.err << "INFO:" << buffer << std::endl;
 
+				{
+					std::lock_guard<std::mutex> _(context.context_lock);
+					ac.flush_log();
+				}
+
 				if (context.is_interractive())
 				{
 					// user is running with debugger, let him handle the situation
-					std::lock_guard<std::mutex> _(context.context_lock);
-					ac.flush_log();
 					return true;
 				}
 			}
+
+			print_call_stack(2);
 
 			{
 				throw AssertInterceptedException {};
