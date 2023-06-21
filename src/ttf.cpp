@@ -15,14 +15,18 @@
 
 #ifdef _WIN32
 #	include <windows.h>
+#	include <DbgHelp.h>
+#	pragma comment(lib, "Dbghelp.lib")
 #endif
 
 #if defined(__GNUC__) || defined(__GNUG__)
 #include <execinfo.h>
 #endif
 
+
 namespace ttf
 {
+
 
 #if defined(__GNUC__) || defined(__GNUG__)
 	void print_call_stack(std::size_t skip_count)
@@ -43,6 +47,34 @@ namespace ttf
 		}
 
 		free(strings);
+	}
+#elif defined(_WIN32)
+	void print_call_stack(std::size_t skip_count)
+	{
+		void* stack[128];
+		unsigned short frames;
+		SYMBOL_INFO* symbol;
+		HANDLE process;
+
+		process = GetCurrentProcess();
+
+		SymInitialize(process, NULL, TRUE);
+
+		frames = CaptureStackBackTrace(0, 128, stack, NULL);
+		symbol = (SYMBOL_INFO*)calloc(sizeof(SYMBOL_INFO) + 256 * sizeof(char), 1);
+		symbol->MaxNameLen = 255;
+		symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+
+		for (uint32_t i = uint32_t(skip_count); i < frames; i++)
+		{
+			SymFromAddr(process, (DWORD64)(stack[i]), 0, symbol);
+
+			std::cout << frames - i - 1 << ": "
+				<< symbol->Name
+				<< " at 0x" << symbol->Address << std::endl;
+		}
+
+		free(symbol);
 	}
 #endif
 
@@ -282,6 +314,7 @@ namespace ttf
 		void print_assert_info(std::ostream& out)
 		{
 			std::lock_guard<spin_lock> _(assert_lock);
+
 			{
 				std::sort(assert_files.begin(), assert_files.end());
 				auto itr = std::unique(assert_files.begin(), assert_files.end());
