@@ -539,5 +539,8 @@ namespace ttf
 		ctx.failed_count++;
 		return "";
 	}
-
+	void utils::wait_miliseconds(const uint32_t ms)
+	{
+		std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+	}
 }

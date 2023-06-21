@@ -70,6 +70,7 @@ namespace ttf
 	struct utils
 	{
 		static std::string read_text_file(const char* abs_path_to_file);
+		static void wait_miliseconds(const uint32_t ms);
 	};
 
 	struct timer
