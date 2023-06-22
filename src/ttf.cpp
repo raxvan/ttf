@@ -37,7 +37,7 @@ namespace ttf
 
 		char **strings = backtrace_symbols(array, size);
 
-		if (strings == NULL) {
+		if (strings == nullptr) {
 			std::cerr << "Failed to print backtrace!" << std::endl;
 			return;
 		}
@@ -528,19 +528,22 @@ namespace ttf
 		return m_share_ptr->load();
 	}
 
-	std::string utils::read_text_file(const char* abs_path_to_file)
+	namespace utils
+	{
+		std::string read_text_file(const char* abs_path_to_file)
 	{
 		std::ifstream fin(abs_path_to_file);
 		if (fin.is_open())
 			return std::string((std::istreambuf_iterator<char>(fin)), std::istreambuf_iterator<char>());
-		
+
 		std::cerr << "Failed to open file" << abs_path_to_file << std::endl;
 		auto& ctx = get_active_context();
 		ctx.failed_count++;
 		return "";
 	}
-	void utils::wait_miliseconds(const uint32_t ms)
+		void print_stack()
 	{
-		std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+			print_call_stack(2);
+		}
 	}
 }
