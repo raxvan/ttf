@@ -4,7 +4,7 @@ def configure(cfg):
 
 def construct(ctx):
 	
-	ctx.config("type","lib")
+	ctx.setoption("type","lib")
 
 	ctx.fscan("src:src")
 
