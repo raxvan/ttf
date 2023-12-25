@@ -160,6 +160,14 @@ namespace ttf
 		} while (false)
 #endif
 
+#if defined(__APPLE__)
+#	define TTF_STOP_DEBUGGER() \
+		do                      \
+		{                       \
+			__builtin_trap();   \
+		} while (false)
+#endif
+
 #define TTF_ASSERT(COND)                                                                    \
 	do                                                                                      \
 	{                                                                                       \

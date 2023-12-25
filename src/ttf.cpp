@@ -23,6 +23,14 @@
 #include <execinfo.h>
 #endif
 
+#if defined(__APPLE__)
+#include <assert.h>
+#include <stdbool.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/sysctl.h>
+#endif
+
 
 namespace ttf
 {
@@ -33,10 +41,10 @@ namespace ttf
 	{
 		void *array[64];
 
-		std::size_t size = backtrace(array, 64);
+		auto size = backtrace(array, 64);
 
-		char **strings = backtrace_symbols(array, size);
-
+        char **strings = backtrace_symbols(array, size);
+        
 		if (strings == nullptr) {
 			std::cerr << "Failed to print backtrace!" << std::endl;
 			return;
@@ -241,6 +249,38 @@ namespace ttf
 		{
 #ifdef _WIN32
 			return IsDebuggerPresent();
+#elif defined(__APPLE__)
+			//from https://stackoverflow.com/questions/4744826/detecting-if-ios-app-is-run-in-debugger
+			
+			// Returns true if the current process is being debugged (either
+			// running under the debugger or has a debugger attached post facto).
+			int                 junk;
+			int                 mib[4];
+			struct kinfo_proc   info;
+			size_t              size;
+
+			// Initialize the flags so that, if sysctl fails for some bizarre 
+			// reason, we get a predictable result.
+
+			info.kp_proc.p_flag = 0;
+
+			// Initialize mib, which tells sysctl the info we want, in this case
+			// we're looking for information about a specific process ID.
+
+			mib[0] = CTL_KERN;
+			mib[1] = KERN_PROC;
+			mib[2] = KERN_PROC_PID;
+			mib[3] = getpid();
+
+			// Call sysctl.
+
+			size = sizeof(info);
+			junk = sysctl(mib, sizeof(mib) / sizeof(*mib), &info, &size, NULL, 0);
+			assert(junk == 0);
+
+			// We're being debugged if the P_TRACED flag is set.
+
+			return ( (info.kp_proc.p_flag & P_TRACED) != 0 );
 #else
 			return false;
 #endif
@@ -304,6 +344,7 @@ namespace ttf
 		}
 		void intercept_assert(const char * file)
 		{
+			
 			active_assert_count++;
 			if(assert_incercept_report)
 			{
@@ -354,6 +395,7 @@ namespace ttf
 		context.intercept_assert(file);
 		if (expr_failed)
 		{
+
 			auto& ac = get_active_test_state();
 
 			// assert failed:
@@ -531,18 +573,19 @@ namespace ttf
 	namespace utils
 	{
 		std::string read_text_file(const char* abs_path_to_file)
-	{
-		std::ifstream fin(abs_path_to_file);
-		if (fin.is_open())
-			return std::string((std::istreambuf_iterator<char>(fin)), std::istreambuf_iterator<char>());
+        {
+            std::ifstream fin(abs_path_to_file);
+            if (fin.is_open())
+                return std::string((std::istreambuf_iterator<char>(fin)), std::istreambuf_iterator<char>());
 
-		std::cerr << "Failed to open file" << abs_path_to_file << std::endl;
-		auto& ctx = get_active_context();
-		ctx.failed_count++;
-		return "";
-	}
-		void print_stack()
-	{
+            std::cerr << "Failed to open file" << abs_path_to_file << std::endl;
+            auto& ctx = get_active_context();
+            ctx.failed_count++;
+            return "";
+        }
+    
+        void print_stack()
+        {
 			print_call_stack(2);
 		}
 	}
