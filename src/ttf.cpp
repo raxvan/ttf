@@ -49,8 +49,8 @@ namespace ttf
 			std::cerr << "Failed to print backtrace!" << std::endl;
 			return;
 		}
-
-		for (std::size_t i = skip_count; i < size; i++) {
+		std::size_t sizet_size = std::size_t(size);
+		for (std::size_t i = skip_count; i < sizet_size; i++) {
 			std::cout << "\t[" << i << "] " << strings[i] << std::endl;
 		}
 
